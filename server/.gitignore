@@ -125,3 +125,4 @@ dist
 .env.development
 .env.test
 .env.production
+/src/generated/prisma
