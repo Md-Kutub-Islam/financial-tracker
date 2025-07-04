@@ -2,12 +2,14 @@ import { PrismaClient } from "../generated/prisma/index.js";
 import AsyncHandler from "../utills/AsynHandler.js";
 import ApiResponse from "../utills/ApiResponse.js";
 import ApiError from "../utills/ApiError.js";
+import { generateToken } from "../utills/jwt.js";
 import bcrypt from "bcrypt";
 
 const prisma = new PrismaClient();
 
 export const registerUser = AsyncHandler(async (req, res) => {
-  const { name, email, password } = req.body;
+  try {
+    const { name, email, password } = req.body;
 
   // Input validation
   if (!name || !email || !password) {
@@ -49,9 +51,58 @@ export const registerUser = AsyncHandler(async (req, res) => {
       name: true,
       email: true,
       createdAt: true,
-      //   updatedAt: true,
     },
   });
 
   return ApiResponse.created(res, "User created successfully", user);
+  } catch (error) {
+    return ApiResponse.error(res, error.message, error.statusCode);
+  }
+});
+
+export const loginUser = AsyncHandler(async (req, res) => {
+ try {
+    const { email, password } = req.body;
+
+    // Input validation
+    if (!email || !password) {
+      throw new ApiError("Email and password are required", 400);
+    }
+  
+    // Find user with password for comparison
+    const user = await prisma.user.findUnique({
+      where: { email: email.toLowerCase().trim() },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        password: true,
+        createdAt: true,
+      },
+    });
+  
+    if (!user) {
+      throw new ApiError("Invalid email or password", 401);
+    }
+  
+    // Compare password
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+  
+    if (!isPasswordValid) {
+      throw new ApiError("Invalid email or password", 401);
+    }
+  
+    // Remove password from response
+    const { password: _, ...userWithoutPassword } = user;
+  
+    // Generate JWT token
+    const token = generateToken(user.id);
+  
+    return ApiResponse.success(res, 200, "Login successful", {
+      user: userWithoutPassword,
+      token,
+    });
+ } catch (error) {
+    return ApiResponse.error(res, error.message, error.statusCode);
+ }
 });
