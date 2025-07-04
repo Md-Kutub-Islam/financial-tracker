@@ -8,10 +8,225 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model Expense {
-  id        Int      @id @default(autoincrement())
-  title     String
-  amount    Float
-  category  String
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
   createdAt DateTime @default(now())
+
+  accounts          Account[]
+  transactions      Transaction[]
+  recurringTxns     RecurringTransaction[]
+  linkedTxns        LinkedTransaction[]
+  attachments       Attachment[]
+  goals             Goal[]
+  budgets           Budget[]
+  calendarTxns      CalendarTransaction[]
+  netWorthSnapshots NetWorthSnapshot[]
+  reports           Report[]
+  insights          Insight[]
+  themePreferences  ThemePreference?
+  currencyPref      CurrencyPreference?
+  customFilters     CustomFilter[]
+  notifications     Notification[]
+  sessions          Session[]
+  auditLogs         AuditLog[]
+  categories        Category[]
+  tags              Tag[]
+}
+
+model Account {
+  id           String        @id @default(uuid())
+  name         String
+  type         String
+  balance      Float         @default(0)
+  user         User          @relation(fields: [userId], references: [id])
+  userId       String
+  transactions Transaction[]
+}
+
+model Category {
+  id           String        @id @default(uuid())
+  name         String
+  type         String // income/expense
+  user         User          @relation(fields: [userId], references: [id])
+  userId       String
+  transactions Transaction[]
+  budgets      Budget[]
+}
+
+model Tag {
+  id      String           @id @default(uuid())
+  name    String
+  user    User             @relation(fields: [userId], references: [id])
+  userId  String
+  txnTags TransactionTag[]
+}
+
+model Transaction {
+  id          String               @id @default(uuid())
+  amount      Float
+  date        DateTime
+  type        String // income, expense, transfer
+  description String?
+  account     Account              @relation(fields: [accountId], references: [id])
+  accountId   String
+  category    Category?            @relation(fields: [categoryId], references: [id])
+  categoryId  String?
+  user        User                 @relation(fields: [userId], references: [id])
+  userId      String
+  tags        TransactionTag[]
+  attachment  Attachment?
+  linkedTxn   LinkedTransaction?
+  calendarTxn CalendarTransaction?
+}
+
+model TransactionTag {
+  transaction   Transaction @relation(fields: [transactionId], references: [id])
+  transactionId String
+
+  tag   Tag    @relation(fields: [tagId], references: [id])
+  tagId String
+
+  @@id([transactionId, tagId])
+}
+
+model RecurringTransaction {
+  id        String   @id @default(uuid())
+  name      String
+  frequency String // daily, weekly, monthly
+  nextDate  DateTime
+  amount    Float
+  user      User     @relation(fields: [userId], references: [id])
+  userId    String
+}
+
+model LinkedTransaction {
+  id            String      @id @default(uuid())
+  debitTxnId    String
+  creditTxnId   String
+  user          User        @relation(fields: [userId], references: [id])
+  userId        String
+  transaction   Transaction @relation(fields: [transactionId], references: [id])
+  transactionId String      @unique
+}
+
+model Attachment {
+  id            String       @id @default(uuid())
+  url           String
+  transaction   Transaction? @relation(fields: [transactionId], references: [id])
+  transactionId String?      @unique
+  user          User         @relation(fields: [userId], references: [id])
+  userId        String
+}
+
+model Goal {
+  id       String   @id @default(uuid())
+  title    String
+  target   Float
+  deadline DateTime
+  achieved Boolean  @default(false)
+  user     User     @relation(fields: [userId], references: [id])
+  userId   String
+}
+
+model Budget {
+  id         String   @id @default(uuid())
+  amount     Float
+  month      Int
+  year       Int
+  user       User     @relation(fields: [userId], references: [id])
+  userId     String
+  category   Category @relation(fields: [categoryId], references: [id])
+  categoryId String
+}
+
+model CalendarTransaction {
+  id              String       @id @default(uuid())
+  transactionDate DateTime
+  label           String?
+  transaction     Transaction? @relation(fields: [transactionId], references: [id])
+  transactionId   String?      @unique
+  user            User         @relation(fields: [userId], references: [id])
+  userId          String
+}
+
+model NetWorthSnapshot {
+  id     String   @id @default(uuid())
+  value  Float
+  date   DateTime
+  user   User     @relation(fields: [userId], references: [id])
+  userId String
+}
+
+model Report {
+  id        String        @id @default(uuid())
+  title     String
+  createdAt DateTime      @default(now())
+  filterId  String?
+  user      User          @relation(fields: [userId], references: [id])
+  userId    String
+  filter    CustomFilter? @relation(fields: [filterId], references: [id])
+}
+
+model Insight {
+  id      String   @id @default(uuid())
+  message String
+  date    DateTime @default(now())
+  user    User     @relation(fields: [userId], references: [id])
+  userId  String
+}
+
+model ThemePreference {
+  id     String @id @default(uuid())
+  mode   String // light or dark
+  user   User   @relation(fields: [userId], references: [id])
+  userId String @unique
+}
+
+model CurrencyPreference {
+  id       String @id @default(uuid())
+  currency String
+  symbol   String
+  user     User   @relation(fields: [userId], references: [id])
+  userId   String @unique
+}
+
+model CustomFilter {
+  id          String   @id @default(uuid())
+  name        String
+  tags        String[]
+  categoryIds String[]
+  accountIds  String[]
+  minAmount   Float?
+  maxAmount   Float?
+  user        User     @relation(fields: [userId], references: [id])
+  userId      String
+  reports     Report[]
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  message   String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+  userId    String
+}
+
+model Session {
+  id        String   @id @default(uuid())
+  token     String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+  userId    String
+}
+
+model AuditLog {
+  id      String   @id @default(uuid())
+  action  String
+  details String?
+  date    DateTime @default(now())
+  user    User     @relation(fields: [userId], references: [id])
+  userId  String
 }
