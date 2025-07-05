@@ -18,8 +18,8 @@ router.route("/refresh-token").post(refreshAccessToken);
 
 // Protected routes (authentication required)
 router.route("/logout").post(authMiddleware, logoutUser);
-router.route("/profile").get(authMiddleware, getUser);
-router.route("/update").put(authMiddleware, updateUser);
-router.route("/user").get(authMiddleware, getUser);
+router.route("/get-profile").get(authMiddleware, getUser);
+router.route("/update-profile").put(authMiddleware, updateUser);
+
 
 export default router;

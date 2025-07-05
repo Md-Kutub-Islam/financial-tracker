@@ -302,37 +302,79 @@ export const refreshAccessToken = AsyncHandler(async (req, res) => {
 });
 
 export const updateUser = AsyncHandler(async (req, res) => {
-  try {
-    const userId = req.user?.userId;
+  console.log("updateUser");
+  const userId = req.user?.userId;
 
-    if (!userId) {
-      throw new ApiError("User not found", 404);
+  if (!userId) {
+    throw new ApiError("User not found", 404);
+  }
+
+  const { name, email, password, confirmPassword } = req.body;
+
+  // Check if at least one field is provided
+  if (!name && !email && !password) {
+    throw new ApiError("At least one field is required", 400);
+  }
+
+  // Prepare update data
+  const updateData = {};
+
+  // Update name if provided
+  if (name) {
+    updateData.name = name.trim();
+  }
+
+  // Update email if provided
+  if (email) {
+    // Check if email is already taken by another user
+    const existingUser = await prisma.user.findFirst({
+      where: {
+        email: email.toLowerCase().trim(),
+        id: { not: userId },
+      },
+    });
+
+    if (existingUser) {
+      throw new ApiError("Email is already taken", 409);
     }
+    updateData.email = email.toLowerCase().trim();
+  }
 
-    const { name, email, password, confirmPassword } = req.body;
-
-    if (!name || !email || !password || !confirmPassword) {
-      throw new ApiError("At least one field is required", 400);
+  // Update password if provided
+  if (password) {
+    if (!confirmPassword) {
+      throw new ApiError(
+        "Confirm password is required when updating password",
+        400
+      );
     }
 
     if (password !== confirmPassword) {
       throw new ApiError("Password and confirm password do not match", 400);
     }
 
-    // Hash password
-    const hashedPassword = await bcrypt.hash(password, 10);
+    // Basic password validation
+    if (password.length < 6) {
+      throw new ApiError("Password must be at least 6 characters long", 400);
+    }
 
-    const user = await prisma.user.update({
-      where: { id: userId },
-      data: {
-        name: name.trim(),
-        email: email.toLowerCase().trim(),
-        password: hashedPassword,
-      },
-    });
-
-    return ApiResponse.success(res, 200, "User updated successfully", user);
-  } catch (error) {
-    return ApiResponse.error(res, error.message, error.statusCode || 500);
+    updateData.password = await bcrypt.hash(password, 10);
   }
+
+  // Update user
+  const user = await prisma.user.update({
+    where: { id: userId },
+    data: updateData,
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      createdAt: true,
+      lastLoginAt: true,
+      lastLogoutAt: true,
+      isActive: true,
+    },
+  });
+
+  return ApiResponse.success(res, 200, "User updated successfully", user);
 });
