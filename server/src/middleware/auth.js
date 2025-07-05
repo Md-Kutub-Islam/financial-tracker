@@ -1,10 +1,21 @@
 import { verifyToken } from "../utills/jwt.js";
 
 const authMiddleware = (req, res, next) => {
-  const authHeader = req.headers.authorization;
+  let token = null;
 
-  // Check if authorization header exists and has correct format
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+  // First try to get token from cookies (for browser requests)
+  if (req.cookies && req.cookies.accessToken) {
+    token = req.cookies.accessToken;
+  } else {
+    // Fallback to Authorization header (for Postman/API clients)
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+      token = authHeader.split(" ")[1];
+    }
+  }
+
+  // Check if token exists
+  if (!token) {
     return res.status(401).json({
       success: false,
       message: "Access token required",
@@ -12,9 +23,6 @@ const authMiddleware = (req, res, next) => {
   }
 
   try {
-    // Extract token from Bearer format
-    const token = authHeader.split(" ")[1];
-
     // Verify and decode token
     const decoded = verifyToken(token);
 

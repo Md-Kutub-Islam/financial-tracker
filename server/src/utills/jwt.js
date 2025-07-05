@@ -1,6 +1,6 @@
 import jwt from "jsonwebtoken";
 
-const generateToken = (userId) => {
+const generateToken = (userId, options = {}) => {
   // Basic input validation
   if (!userId) {
     throw new Error("User ID is required");
@@ -11,13 +11,27 @@ const generateToken = (userId) => {
   }
 
   try {
-    return jwt.sign({ userId }, process.env.JWT_SECRET, {
-      expiresIn: process.env.JWT_EXPIRES_IN || "24h",
+    return jwt.sign({ userId, ...options.payload }, process.env.JWT_SECRET, {
+      expiresIn: options.expiresIn || process.env.JWT_EXPIRES_IN || "24h",
       algorithm: "HS256",
     });
   } catch (error) {
     throw new Error(`Token generation failed: ${error.message}`);
   }
+};
+
+const generateAccessToken = (userId, payload = {}) => {
+  return generateToken(userId, {
+    expiresIn: process.env.ACCESS_TOKEN_EXPIRES_IN || "15m",
+    payload,
+  });
+};
+
+const generateRefreshToken = (userId, payload = {}) => {
+  return generateToken(userId, {
+    expiresIn: process.env.REFRESH_TOKEN_EXPIRES_IN || "7d",
+    payload,
+  });
 };
 
 const verifyToken = (token) => {
@@ -52,4 +66,9 @@ const verifyToken = (token) => {
   }
 };
 
-export { generateToken, verifyToken };
+export {
+  generateToken,
+  verifyToken,
+  generateAccessToken,
+  generateRefreshToken,
+};

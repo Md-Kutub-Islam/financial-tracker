@@ -2,8 +2,13 @@ import { PrismaClient } from "../generated/prisma/index.js";
 import AsyncHandler from "../utills/AsynHandler.js";
 import ApiResponse from "../utills/ApiResponse.js";
 import ApiError from "../utills/ApiError.js";
-import { generateToken, verifyToken } from "../utills/jwt.js";
+import {
+  generateAccessToken,
+  generateRefreshToken,
+  verifyToken,
+} from "../utills/jwt.js";
 import bcrypt from "bcrypt";
+import { cookieOptions, accessTokenCookieOptions } from "../utills/constant.js";
 
 const prisma = new PrismaClient();
 
@@ -54,7 +59,26 @@ export const registerUser = AsyncHandler(async (req, res) => {
       },
     });
 
-    return ApiResponse.created(res, "User created successfully", user);
+    // Generate access and refresh tokens
+    const accessToken = generateAccessToken(user.id, {
+      email: user.email,
+      name: user.name,
+    });
+
+    const refreshToken = generateRefreshToken(user.id, {
+      email: user.email,
+      name: user.name,
+    });
+
+    // Set tokens in cookies
+    res.cookie("accessToken", accessToken, accessTokenCookieOptions);
+    res.cookie("refreshToken", refreshToken, cookieOptions);
+
+    return ApiResponse.created(res, "User registered successfully", {
+      user,
+      accessToken,
+      refreshToken,
+    });
   } catch (error) {
     return ApiResponse.error(res, error.message, error.statusCode);
   }
@@ -95,21 +119,35 @@ export const loginUser = AsyncHandler(async (req, res) => {
     // Remove password from response
     const { password: _, ...userWithoutPassword } = user;
 
-    // Generate JWT token
-    const token = generateToken(user.id);
+    // Generate access and refresh tokens
+    const accessToken = generateAccessToken(user.id, {
+      email: user.email,
+      name: user.name,
+    });
+
+    const refreshToken = generateRefreshToken(user.id, {
+      email: user.email,
+      name: user.name,
+    });
 
     // Update user's last login timestamp in database
     await prisma.user.update({
       where: { id: user.id },
       data: {
         lastLoginAt: new Date(),
-        isActive: true
-      }
+        isActive: true,
+        refreshToken: refreshToken,
+      },
     });
+
+    // Set tokens in cookies
+    res.cookie("accessToken", accessToken, accessTokenCookieOptions);
+    res.cookie("refreshToken", refreshToken, cookieOptions);
 
     return ApiResponse.success(res, 200, "Login successful", {
       user: userWithoutPassword,
-      token,
+      accessToken,
+      refreshToken,
     });
   } catch (error) {
     return ApiResponse.error(res, error.message, error.statusCode);
@@ -124,9 +162,17 @@ export const logoutUser = AsyncHandler(async (req, res) => {
       return ApiResponse.success(res, 200, "Already logged out");
     }
 
-    // Get the token from the request header
-    const authHeader = req.headers.authorization;
-    const token = authHeader && authHeader.split(' ')[1];
+    // Get token from either cookies or Authorization header (for Postman testing)
+    let token = null;
+
+    // First try to get from cookies
+    if (req.cookies && req.cookies.accessToken) {
+      token = req.cookies.accessToken;
+    } else {
+      // Fallback to Authorization header (for Postman)
+      const authHeader = req.headers.authorization;
+      token = authHeader && authHeader.split(" ")[1];
+    }
 
     if (!token) {
       return ApiResponse.success(res, 200, "Already logged out");
@@ -147,8 +193,9 @@ export const logoutUser = AsyncHandler(async (req, res) => {
         // You can add a lastLogoutAt field to your User model if needed
         // lastLogoutAt: new Date()
         lastLogoutAt: new Date(),
-        isActive: false
-      }
+        isActive: false,
+        refreshToken: null,
+      },
     });
 
     // Option 1: Simple logout (recommended for most applications)
@@ -156,13 +203,16 @@ export const logoutUser = AsyncHandler(async (req, res) => {
     const logoutData = {
       message: "Logged out successfully",
       logoutTime: new Date().toISOString(),
-      userId: userId
+      userId: userId,
     };
 
-    return ApiResponse.success(res, 200, "Logged out successfully", logoutData);
+    // Clear cookies
+    res.clearCookie("accessToken", accessTokenCookieOptions);
+    res.clearCookie("refreshToken", cookieOptions);
 
+    return ApiResponse.success(res, 200, "Logged out successfully", logoutData);
   } catch (error) {
-    console.error('Logout error:', error);
+    console.error("Logout error:", error);
     return ApiResponse.error(res, error.message, error.statusCode || 500);
   }
 });
@@ -185,7 +235,7 @@ export const getUser = AsyncHandler(async (req, res) => {
         lastLogoutAt: true,
         isActive: true,
         createdAt: true,
-      }
+      },
     });
 
     if (!user) {
@@ -198,6 +248,58 @@ export const getUser = AsyncHandler(async (req, res) => {
   }
 });
 
+export const refreshAccessToken = AsyncHandler(async (req, res) => {
+  try {
+    const { refreshToken } = req.cookies;
+
+    if (!refreshToken) {
+      throw new ApiError("Refresh token is required", 401);
+    }
+
+    // Verify refresh token
+    const decoded = verifyToken(refreshToken);
+
+    if (!decoded.userId) {
+      throw new ApiError("Invalid refresh token", 401);
+    }
+
+    // Get user information
+    const user = await prisma.user.findUnique({
+      where: { id: decoded.userId },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        isActive: true,
+      },
+    });
+
+    if (!user || !user.isActive) {
+      throw new ApiError("User not found or inactive", 401);
+    }
+
+    // Generate new access token
+    const newAccessToken = generateAccessToken(user.id, {
+      email: user.email,
+      name: user.name,
+    });
+
+    // Set new access token in cookie
+    res.cookie("accessToken", newAccessToken, accessTokenCookieOptions);
+
+    return ApiResponse.success(
+      res,
+      200,
+      "Access token refreshed successfully",
+      {
+        accessToken: newAccessToken,
+        user,
+      }
+    );
+  } catch (error) {
+    return ApiResponse.error(res, error.message, error.statusCode || 500);
+  }
+});
 
 export const updateUser = AsyncHandler(async (req, res) => {
   try {
@@ -225,12 +327,12 @@ export const updateUser = AsyncHandler(async (req, res) => {
       data: {
         name: name.trim(),
         email: email.toLowerCase().trim(),
-        password: hashedPassword
-      }
+        password: hashedPassword,
+      },
     });
 
     return ApiResponse.success(res, 200, "User updated successfully", user);
   } catch (error) {
     return ApiResponse.error(res, error.message, error.statusCode || 500);
   }
-}
+});

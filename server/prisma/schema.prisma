@@ -17,6 +17,7 @@ model User {
   lastLogoutAt DateTime?
   lastLoginAt DateTime?
   isActive Boolean @default(true)
+  refreshToken String?
 
   accounts          Account[]
   transactions      Transaction[]
