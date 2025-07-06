@@ -3,6 +3,7 @@ import cors from "cors";
 import cookieParser from "cookie-parser";
 import { PrismaClient } from "./generated/prisma/index.js";
 import userAuthRoute from "./routes/userAuthRoute.js";
+import categoriesRoutes from "./routes/categoriesRoutes.js";
 import ApiError from "./utills/ApiError.js";
 
 const prisma = new PrismaClient();
@@ -34,10 +35,12 @@ app.get("/", async (req, res) => {
 });
 
 app.use("/api/v1/auth", userAuthRoute);
+app.use("/api/v1/categories", categoriesRoutes);
+
 
 // Simple error handler
 app.use((err, req, res, next) => {
-  if (err instanceof ApiError) {
+  if (err instanceof ApiError) { 
     return res.status(err.statusCode).json(err.toJSON());
   }
   res
