@@ -21,5 +21,4 @@ router.route("/logout").post(authMiddleware, logoutUser);
 router.route("/get-profile").get(authMiddleware, getUser);
 router.route("/update-profile").put(authMiddleware, updateUser);
 
-
 export default router;
