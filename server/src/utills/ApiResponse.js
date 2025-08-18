@@ -5,11 +5,11 @@ class ApiResponse {
   /**
    * Send success response (200)
    */
-  static success(res, statusCode, message, data = null) {
-    return res.status(statusCode).json({
+  static success(res, message, data = null) {
+    return res.status(200).json({
       success: true,
       message,
-      statusCode,
+      statusCode: 200,
       ...(data && { data }),
     });
   }

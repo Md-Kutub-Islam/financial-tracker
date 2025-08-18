@@ -47,7 +47,6 @@ model Account {
   balance      Float         @default(0)
   user         User          @relation(fields: [userId], references: [id])
   userId       String
-  transactions Transaction[]
 }
 
 model Category {
@@ -70,12 +69,11 @@ model Tag {
 
 model Transaction {
   id          String               @id @default(uuid())
+  name        String?
   amount      Float
   date        DateTime
   type        String // income, expense, transfer
   description String?
-  account     Account              @relation(fields: [accountId], references: [id])
-  accountId   String
   category    Category?            @relation(fields: [categoryId], references: [id])
   categoryId  String?
   user        User                 @relation(fields: [userId], references: [id])
