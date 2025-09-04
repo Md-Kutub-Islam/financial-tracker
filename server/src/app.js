@@ -6,6 +6,7 @@ import userAuthRoute from "./routes/userAuthRoute.js";
 import categoriesRoutes from "./routes/categoriesRoutes.js";
 import transactionRoutes from "./routes/transactionRoutes.js";
 import accountRoutes from "./routes/accountRoutes.js";
+import budgetRoutes from "./routes/budgetRoutes.js";
 import ApiError from "./utills/ApiError.js";
 
 const prisma = new PrismaClient();
@@ -21,7 +22,7 @@ app.use(express.json());
 app.use(cookieParser());
 
 // Test endpoint to verify Prisma connection
-app.get("/", async (req, res) => {
+app.get("/", async ( _, res) => {
   try {
     const categories = await prisma.category.findMany();
     const users = await prisma.user.findMany();
@@ -40,9 +41,9 @@ app.use("/api/v1/auth", userAuthRoute);
 app.use("/api/v1/categories", categoriesRoutes);
 app.use("/api/v1/transactions", transactionRoutes);
 app.use("/api/v1/accounts", accountRoutes);
-
+app.use("/api/v1/budgets", budgetRoutes);
 // Simple error handler
-app.use((err, req, res, next) => {
+app.use((err, _ , res) => {
   if (err instanceof ApiError) {
     return res.status(err.statusCode).json(err.toJSON());
   }
