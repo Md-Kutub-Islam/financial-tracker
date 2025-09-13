@@ -1,5 +1,11 @@
 import { Router } from "express";
-import { createBudget, getBudgets, getOneBudget, updateBudget, deleteBudget } from "../controller/budgetController.js";
+import {
+  createBudget,
+  getBudgets,
+  getOneBudget,
+  updateBudget,
+  deleteBudget,
+} from "../controller/budgetController.js";
 import authMiddleware from "../middleware/auth.js";
 
 const router = Router();

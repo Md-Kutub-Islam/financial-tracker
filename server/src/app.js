@@ -22,7 +22,7 @@ app.use(express.json());
 app.use(cookieParser());
 
 // Test endpoint to verify Prisma connection
-app.get("/", async ( _, res) => {
+app.get("/", async (_, res) => {
   try {
     const categories = await prisma.category.findMany();
     const users = await prisma.user.findMany();
@@ -43,7 +43,7 @@ app.use("/api/v1/transactions", transactionRoutes);
 app.use("/api/v1/accounts", accountRoutes);
 app.use("/api/v1/budgets", budgetRoutes);
 // Simple error handler
-app.use((err, _ , res) => {
+app.use((err, req, res, next) => {
   if (err instanceof ApiError) {
     return res.status(err.statusCode).json(err.toJSON());
   }
