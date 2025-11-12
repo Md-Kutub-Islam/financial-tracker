@@ -25,6 +25,7 @@ model User {
   linkedTxns        LinkedTransaction[]
   attachments       Attachment[]
   goals             Goal[]
+  monthlyBudgets    MonthlyBudget[]
   budgets           Budget[]
   calendarTxns      CalendarTransaction[]
   netWorthSnapshots NetWorthSnapshot[]
@@ -133,15 +134,25 @@ model Goal {
   userId   String
 }
 
+model MonthlyBudget {
+  id        String   @id @default(uuid())
+  amount    Float
+  startDate DateTime
+  endDate   DateTime
+  user      User     @relation(fields: [userId], references: [id])
+  userId    String
+}
+
 model Budget {
-  id         String   @id @default(uuid())
-  amount     Float
-  startDate  DateTime
-  endDate    DateTime
-  user       User     @relation(fields: [userId], references: [id])
-  userId     String
-  category   Category @relation(fields: [categoryId], references: [id])
-  categoryId String
+  id            String   @id @default(uuid())
+  expenseAmount        Float?
+  monthlyAmount Float?    // Made optional
+  startDate     DateTime
+  endDate       DateTime
+  user          User      @relation(fields: [userId], references: [id])
+  userId        String
+  category      Category?  @relation(fields: [categoryId], references: [id])
+  categoryId    String?
 }
 
 model CalendarTransaction {

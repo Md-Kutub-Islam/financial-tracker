@@ -17,20 +17,6 @@ export const createTransaction = AsyncHandler(async (req, res) => {
     throw new ApiError("User not found", 404);
   }
 
-  // Validate categoryId if provided
-  if (categoryId) {
-    const category = await prisma.category.findFirst({
-      where: {
-        id: categoryId,
-        userId: userId,
-      },
-    });
-
-    if (!category) {
-      throw new ApiError("Category not found or does not belong to you", 404);
-    }
-  }
-
   const transaction = await prisma.transaction.create({
     data: {
       name,
